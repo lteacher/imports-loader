@@ -2,11 +2,19 @@
 	MIT License http://www.opensource.org/licenses/mit-license.php
 	Author Tobias Koppers @sokra
 */
+var path = require('path');
 var loaderUtils = require("loader-utils");
 var SourceNode = require("source-map").SourceNode;
 var SourceMapConsumer = require("source-map").SourceMapConsumer;
-var HEADER = "/*** IMPORTS FROM imports-loader ***/\n";
+
+var getHeader = function(isCoffee) {
+	var headerText = "IMPORTS FROM imports-loader";
+
+	return isCoffee ? '""" ' + headerText + ' """\n' : "/*** " + headerText + " ***/\n";
+}
+
 module.exports = function(content, sourceMap) {
+	var isCoffee = this.resourcePath && path.extname(this.resourcePath) === '.coffee';
 	if(this.cacheable) this.cacheable();
 	var query = loaderUtils.getOptions(this) || {};
 	var imports = [];
@@ -23,27 +31,28 @@ module.exports = function(content, sourceMap) {
 			value = "require(" + JSON.stringify(mod) + ")";
 		}
 		if(name === "this") {
+			if (isCoffee) throw new Error('This bind not supported for coffeescript');
 			imports.push("(function() {");
-			postfixes.unshift("}.call(" + value + "));");
+			postfixes.unshift("}.call(" + value + "))");
 		} else if(name.indexOf(".") !== -1) {
 			name.split(".").reduce(function(previous, current, index, names) {
 				var expr = previous + current;
 
 				if(previous.length === 0) {
-					imports.push("var " + expr + " = (" + current + " || {});");
+					imports.push((isCoffee ? "" : "var ") + expr + " = (" + current + " || {})");
 				} else if(index < names.length-1) {
-					imports.push(expr + " = " + expr + " || {};");
+					imports.push(expr + " = " + expr + " || {}");
 				} else {
-					imports.push(expr + " = " + value + ";");
+					imports.push(expr + " = " + value);
 				}
 
 				return previous + current + ".";
 			}, "");
 		} else {
-			imports.push("var " + name + " = " + value + ";");
+			imports.push((isCoffee ? "" : "var ") + name + " = " + value);
 		}
 	});
-	var prefix = HEADER + imports.join("\n") + "\n\n";
+	var prefix = getHeader(isCoffee) + imports.join("\n") + "\n\n";
 	var postfix = "\n" + postfixes.join("\n");
 	if(sourceMap) {
 		var currentRequest = loaderUtils.getCurrentRequest(this);

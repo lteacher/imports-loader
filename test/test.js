@@ -4,7 +4,7 @@ var loader = require("../");
 describe("loader", function() {
 	it("sets a header so the developer can see where imports-loader is being applied", function(){
 		var generatedCode = loader.call({ query: "?someVariable=>1" });
-		generatedCode.indexOf("/*** IMPORTS FROM imports-loader ***/\n").should.be.eql(0);
+		generatedCode.indexOf("IMPORTS FROM imports-loader").should.be.above(0);
 	});
 
 	it("can set a variable", function(){
